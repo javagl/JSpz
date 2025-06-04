@@ -84,6 +84,7 @@ public class SpzToTileset
         int numPoints = g.getNumPoints();
         int shDegree = g.getShDegree();
         GltfAssetV2 gltfAsset = createGltfAsset(numPoints, shDegree, spzBytes);
+        //print(gltfAsset);
 
         // Create some dummy tileset JSON
         String contentUrl = "content.glb";
@@ -234,6 +235,10 @@ public class SpzToTileset
         gltf.addScenes(scene);
         gltf.setScene(0);
 
+        // Add information about the used/required extension
+        gltf.addExtensionsUsed("KHR_spz_gaussian_splats_compression");
+        gltf.addExtensionsRequired("KHR_spz_gaussian_splats_compression");
+
         // Build the actual asset
         ByteBuffer binaryData = ByteBuffer.wrap(spzBytes);
         GltfAssetV2 gltfAsset = new GltfAssetV2(gltf, binaryData);
@@ -286,7 +291,7 @@ public class SpzToTileset
     {
         String boxString = Arrays.toString(box);
 
-        // This creating a "dummy" tileset JSON string, because
+        // This is creating a "dummy" tileset JSON string, because
         // J3DTiles is not public yet. The obscure structure with
         // the additional child node is to work around what might
         // be a bug in CesiumJS, but everything is in flux here.
@@ -333,7 +338,7 @@ public class SpzToTileset
     }
 
     /**
-     * Creates a bounding box, as stored in a tileseet JSON, from the given
+     * Creates a bounding box, as stored in a tileset JSON, from the given
      * minimum and maximum point of the box
      * 
      * @param minX The minimum x
