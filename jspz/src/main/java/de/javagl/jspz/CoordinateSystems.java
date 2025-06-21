@@ -50,8 +50,8 @@ public class CoordinateSystems
      * @param from The {@link CoordinateSystem} to convert from
      * @param to The {@link CoordinateSystem} to convert to
      */
-    public static void convertCoordinates(GaussianCloud g, CoordinateSystem from,
-        CoordinateSystem to)
+    public static void convertCoordinates(GaussianCloud g,
+        CoordinateSystem from, CoordinateSystem to)
     {
         CoordinateConverter c = coordinateConverter(from, to);
         int n = g.getNumPoints();

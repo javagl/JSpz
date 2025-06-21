@@ -33,7 +33,6 @@ import java.nio.FloatBuffer;
  */
 class DefaultGaussianCloud implements GaussianCloud
 {
-
     /**
      * The number of points
      */

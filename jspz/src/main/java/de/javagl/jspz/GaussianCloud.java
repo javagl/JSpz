@@ -39,7 +39,6 @@ import java.nio.FloatBuffer;
  */
 public interface GaussianCloud
 {
-
     /**
      * Returns the number of points
      * 
