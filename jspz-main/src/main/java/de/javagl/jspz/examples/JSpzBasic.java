@@ -30,7 +30,7 @@ public class JSpzBasic
     public static void main(String[] args) throws IOException
     {
         // Create an input stream with the SPZ data
-        String fileName = "./data/hornedlizard.spz";
+        String fileName = "./data/unitCube.spz";
         InputStream spzInputStream = new FileInputStream(new File(fileName));
 
         // Create a default SPZ reader
@@ -44,7 +44,7 @@ public class JSpzBasic
             CoordinateSystem.LUF);
 
         // Print some info...
-        int n = 10;
+        int n = Math.min(10, g.getNumPoints());
         for (int i = 0; i < n; i++)
         {
             GaussianCloudUtils.printSplat(g, i);

@@ -32,7 +32,7 @@ public class JSpzBasicWriting
     public static void main(String[] args) throws IOException
     {
         // Create an input stream with the SPZ data
-        String fileName = "./data/hornedlizard.spz";
+        String fileName = "./data/unitCube.spz";
         InputStream spzInputStream = new FileInputStream(new File(fileName));
 
         // Create a default SPZ reader
@@ -44,7 +44,7 @@ public class JSpzBasicWriting
 
         // Create an output stream for the SPZ data
         OutputStream spzOutputStream =
-            new FileOutputStream(new File("./data/hornedlizard_OUT.spz"));
+            new FileOutputStream(new File("./data/unitCube_out.spz"));
         
         // Create a default SPZ writer
         SpzWriter spzWriter = SpzWriters.createDefaultV2();
@@ -56,7 +56,7 @@ public class JSpzBasicWriting
         // Verify the result
         System.out.println("Verifying...");
         InputStream spzResultInputStream =
-            new FileInputStream(new File("./data/hornedlizard_OUT.spz"));
+            new FileInputStream(new File("./data/unitCube_out.spz"));
         GaussianCloud gResult = spzReader.read(spzResultInputStream);
         boolean equal = GaussianCloudUtils.equal(g, gResult);
         System.out.println("Equal? " + equal);

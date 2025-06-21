@@ -39,7 +39,7 @@ public class JSpzBasicCreation
     /**
      * The alpha value for all blobs
      */
-    private static final float alpha = 10.0f;
+    private static final float alpha = 1.0f;
 
     /**
      * The entry point of the application
@@ -50,7 +50,7 @@ public class JSpzBasicCreation
     public static void main(String[] args) throws IOException
     {
         // Create a Gaussian cloud and fill it with data
-        GaussianCloud g = GaussianClouds.create(20, 1);
+        GaussianCloud g = GaussianClouds.create(20, 0);
 
         for (int c = 0; c < 8; c++)
         {
