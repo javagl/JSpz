@@ -52,7 +52,7 @@ public class SpzToTileset
     public static void main(String[] args) throws IOException
     {
         // Adjust this as necessary:
-        String spzFileName = "./data/hornedlizard.spz";
+        String spzFileName = "./data/unitCube.spz";
         String outputDirectory = "./data/";
         
         createTileset(spzFileName, outputDirectory);
@@ -102,7 +102,7 @@ public class SpzToTileset
         // Write the tileset JSON to the output directory
         Path tilesetJsonPath = Paths.get(outputDirectory, "tileset.json");
         Files.write(tilesetJsonPath, tilesetJson.getBytes(),
-            StandardOpenOption.CREATE);
+            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     /**

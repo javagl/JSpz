@@ -7,19 +7,21 @@ package de.javagl.jspz.examples;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
-import de.javagl.jspz.CoordinateSystem;
-import de.javagl.jspz.CoordinateSystems;
 import de.javagl.jspz.GaussianCloud;
 import de.javagl.jspz.SpzReader;
 import de.javagl.jspz.SpzReaders;
+import de.javagl.jspz.SpzWriter;
+import de.javagl.jspz.SpzWriters;
 
 /**
  * A basic example for how to use JSpz
  */
-public class JSpzBasic
+public class JSpzBasicWriting
 {
     /**
      * The entry point of the application
@@ -37,18 +39,26 @@ public class JSpzBasic
         SpzReader spzReader = SpzReaders.createDefaultV2();
 
         // Read a GaussianCloud object from the input stream
+        System.out.println("Reading...");
         GaussianCloud g = spzReader.read(spzInputStream);
 
-        // Optionally do some coordinate system conversions
-        CoordinateSystems.convertCoordinates(g, CoordinateSystem.UNSPECIFIED,
-            CoordinateSystem.LUF);
+        // Create an output stream for the SPZ data
+        OutputStream spzOutputStream =
+            new FileOutputStream(new File("./data/hornedlizard_OUT.spz"));
+        
+        // Create a default SPZ writer
+        SpzWriter spzWriter = SpzWriters.createDefaultV2();
 
-        // Print some info...
-        int n = 10;
-        for (int i = 0; i < n; i++)
-        {
-            GaussianCloudUtils.printSplat(g, i);
-        }
+        // Write the GaussianCloud to the output stream
+        System.out.println("Writing...");
+        spzWriter.write(g, spzOutputStream);
+
+        // Verify the result
+        System.out.println("Verifying...");
+        InputStream spzResultInputStream =
+            new FileInputStream(new File("./data/hornedlizard_OUT.spz"));
+        GaussianCloud gResult = spzReader.read(spzResultInputStream);
+        boolean equal = GaussianCloudUtils.equal(g, gResult);
+        System.out.println("Equal? " + equal);
     }
-
 }
