@@ -37,6 +37,11 @@ package de.javagl.jspz;
 class SpzUtils
 {
     /**
+     * The magic SPZ header
+     */
+    static final int MAGIC = 0x5053474e;
+
+    /**
      * An inverse sigmoid function that is used for converting the raw alpha
      * values (normalized to the range [0...1]) into another value in [-Inf,
      * Inf] for whatever reason.
@@ -53,6 +58,32 @@ class SpzUtils
     }
 
     /**
+     * The sigmoid function that is used for converting the alpha value from the
+     * range [-Inf, Inf] to a value in [0, 1].
+     * 
+     * See {@link #invSigmoid(float)}
+     * 
+     * @param x The argument
+     * @return The result
+     */
+    static float sigmoid(float x)
+    {
+        return 1.0f / (1.0f + (float) Math.exp(-x));
+    }
+
+    /**
+     * Converts the given value into a byte, by rounding it and clamping it to
+     * the range [0, 255].
+     * 
+     * @param x The input value
+     * @return The result
+     */
+    static byte toByte(float x)
+    {
+        return (byte) (Math.min(255, Math.max(0, Math.round(x))));
+    }
+
+    /**
      * Returns the number of dimensions for the given spherical harmonics
      * degree.
      * 
@@ -62,6 +93,23 @@ class SpzUtils
     static int dimensionsForDegree(int degree)
     {
         return (degree + 1) * (degree + 1) - 1;
+    }
+
+    /**
+     * Quantize the given value for spherical harmonics quantization.
+     * 
+     * Taken from https://github.com/nianticlabs/spz, because the details are
+     * not specified.
+     * 
+     * @param x The input value
+     * @param bucketSize The bucket size
+     * @return The result
+     */
+    static byte quantize(float x, int bucketSize)
+    {
+        int q = Math.round(x * 128.0f) + 128;
+        q = (q + bucketSize / 2) / bucketSize * bucketSize;
+        return toByte(q);
     }
 
     /**

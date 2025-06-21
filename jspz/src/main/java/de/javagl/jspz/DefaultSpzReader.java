@@ -44,49 +44,6 @@ import java.util.zip.GZIPInputStream;
  */
 class DefaultSpzReader implements SpzReader
 {
-    /**
-     * The magic SPZ header
-     */
-    private static final int MAGIC = 0x5053474e;
-
-    /**
-     * Internal, intermediate representation of the SPZ data, as it is read from
-     * the file.
-     */
-    @SuppressWarnings("javadoc")
-    private static class RawGaussianCloudV2
-    {
-        final int numPoints;
-        final int shDegree;
-        final int fractionalBits;
-        final boolean antialiased;
-
-        final byte positions[];
-        final byte scales[];
-        final byte rotations[];
-        final byte alphas[];
-        final byte colors[];
-        final byte sh[];
-
-        RawGaussianCloudV2(int numPoints, int shDegree, int fractionalBits,
-            boolean antialiased)
-        {
-            this.numPoints = numPoints;
-            this.shDegree = shDegree;
-            this.fractionalBits = fractionalBits;
-            this.antialiased = antialiased;
-
-            int shDim = SpzUtils.dimensionsForDegree(shDegree);
-            this.positions = new byte[numPoints * 3 * 3];
-            this.scales = new byte[numPoints * 3];
-            this.rotations = new byte[numPoints * 3];
-            this.alphas = new byte[numPoints];
-            this.colors = new byte[numPoints * 3];
-            this.sh = new byte[numPoints * shDim * 3];
-        }
-
-    }
-
     @Override
     public GaussianCloud read(InputStream spzInputStream) throws IOException
     {
@@ -98,10 +55,10 @@ class DefaultSpzReader implements SpzReader
 
         ByteBuffer headerBuffer = Buffers.wrap(headerBytes);
         int magic = headerBuffer.getInt(0);
-        if (magic != MAGIC)
+        if (magic != SpzUtils.MAGIC)
         {
             throw new IOException(
-                "Expected magic to be " + Integer.toHexString(MAGIC)
+                "Expected magic to be " + Integer.toHexString(SpzUtils.MAGIC)
                     + ", but it is " + Integer.toHexString(magic));
         }
         int version = headerBuffer.getInt(4);
