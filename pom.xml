@@ -26,7 +26,6 @@
 
 	<modules>
 		<module>jspz</module>
-		<module>jspz-main</module>
 	</modules>
 
 	<properties>
