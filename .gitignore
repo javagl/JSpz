@@ -1,13 +1,16 @@
 /.metadata
 
-/jspz-main/data/internal
+/jspz-experiments
 
 /jspz/.project
 /jspz/.settings
 /jspz/.classpath
 /jspz/target
 
-/jspz-main/.project
-/jspz-main/.settings
-/jspz-main/.classpath
-/jspz-main/target
+/jspz-examples/.project
+/jspz-examples/.settings
+/jspz-examples/.classpath
+/jspz-examples/target
+
+/jspz-examples/data/*
+!/jspz-examples/data/unitCube.spz
