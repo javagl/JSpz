@@ -37,9 +37,16 @@ import de.javagl.jspz.CoordinateSystems;
 import de.javagl.jspz.GaussianCloud;
 import de.javagl.jspz.SpzReader;
 import de.javagl.jspz.SpzReaders;
+import de.javagl.jspz.SpzWriter;
+import de.javagl.jspz.SpzWriters;
 
 /**
- * A example that converts an SPZ file into a tileset. 
+ * A example that converts an SPZ file into a tileset.
+ * 
+ * NOTE: Some aspects of the coordinate system conventions are
+ * not yet clear, and the bounding volume of the tileset may
+ * not match the actual primitive. This is tracked in 
+ * https://github.com/CesiumGS/cesium/issues/12682
  */
 public class SpzToTileset
 {
@@ -54,21 +61,21 @@ public class SpzToTileset
         // Adjust this as necessary:
         String spzFileName = "./data/unitCube.spz";
         String outputDirectory = "./data/";
-        
+
         createTileset(spzFileName, outputDirectory);
     }
 
     /**
-     * Create a tileset that contains a single glTF content that uses
-     * the <code>KHR_spz_gaussian_splats_compression</code> extension
-     * to define the Gaussian Splats from the specified file.
+     * Create a tileset that contains a single glTF content that uses the
+     * <code>KHR_spz_gaussian_splats_compression</code> extension to define the
+     * Gaussian Splats from the specified file.
      * 
      * @param spzFileName The SPZ file name
      * @param outputDirectory The output directory
      * @throws IOException If an IO error occurs
      */
-    private static void createTileset(
-        String spzFileName, String outputDirectory) throws IOException
+    private static void createTileset(String spzFileName,
+        String outputDirectory) throws IOException
     {
         // Read the SPZ data and a GaussianCloud
         byte[] spzBytes = Files.readAllBytes(Paths.get(spzFileName));
@@ -79,12 +86,17 @@ public class SpzToTileset
         // Convert the coordinate system for glTF
         CoordinateSystems.convertCoordinates(g, CoordinateSystem.RUB,
             CoordinateSystem.LUF);
+        SpzWriter spzWriter = SpzWriters.createDefaultV2();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        spzWriter.write(g, baos);
+        byte[] gltfSpzBytes = baos.toByteArray();
 
         // Create a binary glTF asset from the SPZ data
         int numPoints = g.getNumPoints();
         int shDegree = g.getShDegree();
-        GltfAssetV2 gltfAsset = createGltfAsset(numPoints, shDegree, spzBytes);
-        //print(gltfAsset);
+        GltfAssetV2 gltfAsset =
+            createGltfAsset(numPoints, shDegree, gltfSpzBytes);
+        // print(gltfAsset);
 
         // Create some dummy tileset JSON
         String contentUrl = "content.glb";
@@ -93,7 +105,7 @@ public class SpzToTileset
 
         // Prepare the output directory
         Paths.get(outputDirectory).toFile().mkdirs();
-        
+
         // Write the glTF to the output directory
         Path glbFilePath = Paths.get(outputDirectory, contentUrl);
         GltfAssetWriter w = new GltfAssetWriter();
@@ -106,17 +118,17 @@ public class SpzToTileset
     }
 
     /**
-     * Create a binary glTF asset that uses the 
-     * <code>KHR_spz_gaussian_splats_compression</code>
-     * extension to define Gaussian Splats
-     *   
+     * Create a binary glTF asset that uses the
+     * <code>KHR_spz_gaussian_splats_compression</code> extension to define
+     * Gaussian Splats
+     * 
      * @param numPoints The number of points
      * @param shDegree The shpherical harmonics degree
      * @param spzBytes The SPZ data
      * @return The asset
      */
-    private static GltfAssetV2 createGltfAsset(
-        int numPoints, int shDegree, byte spzBytes[])
+    private static GltfAssetV2 createGltfAsset(int numPoints, int shDegree,
+        byte spzBytes[])
     {
         // Create the glTF
         GlTF gltf = new GlTF();
@@ -376,10 +388,10 @@ public class SpzToTileset
         { cx, cy, cz, hxx, hxy, hxz, hyx, hyy, hyz, hzx, hzy, hzz, };
         return box;
     }
-    
+
     /**
      * Print the JSON part of the given asset to the console.
-     *  
+     * 
      * Only intended for debugging.
      * 
      * 
@@ -396,5 +408,4 @@ public class SpzToTileset
         System.out.println(new String(baos.toByteArray()));
     }
 
-    
 }
