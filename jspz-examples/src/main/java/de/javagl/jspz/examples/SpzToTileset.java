@@ -43,10 +43,9 @@ import de.javagl.jspz.SpzWriters;
 /**
  * A example that converts an SPZ file into a tileset.
  * 
- * NOTE: Some aspects of the coordinate system conventions are
- * not yet clear, and the bounding volume of the tileset may
- * not match the actual primitive. This is tracked in 
- * https://github.com/CesiumGS/cesium/issues/12682
+ * NOTE: Some aspects of the coordinate system conventions are not yet clear,
+ * and the bounding volume of the tileset may not match the actual primitive.
+ * This is tracked in https://github.com/CesiumGS/cesium/issues/12682
  */
 public class SpzToTileset
 {
@@ -59,7 +58,8 @@ public class SpzToTileset
     public static void main(String[] args) throws IOException
     {
         // Adjust this as necessary:
-        String spzFileName = "./data/unitCube.spz";
+        // String spzFileName = "./data/unitCube.spz";
+        String spzFileName = "./data/box-100-200-300-700-600-500.spz";
         String outputDirectory = "./data/";
 
         createTileset(spzFileName, outputDirectory);
@@ -83,25 +83,38 @@ public class SpzToTileset
         SpzReader spzReader = SpzReaders.createDefaultV2();
         GaussianCloud g = spzReader.read(spzInputStream);
 
+        byte[] gltfSpzBytes = spzBytes;
         // Convert the coordinate system for glTF
-        CoordinateSystems.convertCoordinates(g, CoordinateSystem.RUB,
-            CoordinateSystem.LUF);
-        SpzWriter spzWriter = SpzWriters.createDefaultV2();
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        spzWriter.write(g, baos);
-        byte[] gltfSpzBytes = baos.toByteArray();
-
+        
+        // NOTE: See https://github.com/nianticlabs/spz/issues/42
+        boolean CONVERT_COORDINATES = false;
+        if (CONVERT_COORDINATES)
+        {
+            // This should (probably) happen here, based on the description
+            // of the KHR_spz_gaussian_splats_compression README at
+            // 068b74f3bc8f0a1bb13e2265409caddb76d31d12, but this is likely 
+            // not correct. 
+            CoordinateSystems.convertCoordinates(g, CoordinateSystem.RUB,
+                CoordinateSystem.LUF);
+            SpzWriter spzWriter = SpzWriters.createDefaultV2();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            spzWriter.write(g, baos);
+            gltfSpzBytes = baos.toByteArray();
+        }
+        
+        float box[] = computeBoundingBox(g);
+        
         // Create a binary glTF asset from the SPZ data
         int numPoints = g.getNumPoints();
         int shDegree = g.getShDegree();
         GltfAssetV2 gltfAsset =
-            createGltfAsset(numPoints, shDegree, gltfSpzBytes);
+            createGltfAsset(numPoints, shDegree, box, gltfSpzBytes);
         // print(gltfAsset);
 
         // Create some dummy tileset JSON
         String contentUrl = "content.glb";
-        float box[] = computeBoundingBox(g);
-        String tilesetJson = createTilesetJson(contentUrl, box);
+        float[] tilesetBox = createTilesetBoundingBoxFromGltf(box);
+        String tilesetJson = createTilesetJson(contentUrl, tilesetBox);
 
         // Prepare the output directory
         Paths.get(outputDirectory).toFile().mkdirs();
@@ -124,11 +137,12 @@ public class SpzToTileset
      * 
      * @param numPoints The number of points
      * @param shDegree The shpherical harmonics degree
+     * @param box The bounding box
      * @param spzBytes The SPZ data
      * @return The asset
      */
     private static GltfAssetV2 createGltfAsset(int numPoints, int shDegree,
-        byte spzBytes[])
+        float box[], byte spzBytes[])
     {
         // Create the glTF
         GlTF gltf = new GlTF();
@@ -144,9 +158,9 @@ public class SpzToTileset
         position.setType("VEC3");
         position.setCount(numPoints);
         position.setMin(new Number[]
-        { -1.0f, -1.0f, -1.0f });
+        { box[0], box[1], box[2] });
         position.setMax(new Number[]
-        { 1.0f, 1.0f, 1.0f });
+        { box[3], box[3], box[5] });
         gltf.addAccessors(position);
 
         // Add the COLOR_0 accessor
@@ -202,7 +216,7 @@ public class SpzToTileset
         MeshPrimitive primitive = new MeshPrimitive();
         primitive.setMode(GltfConstants.GL_POINTS);
 
-        // Add all accessors to the mesh prmitive
+        // Add all accessors to the mesh primitive
         int a = 0;
         primitive.addAttributes("POSITION", a++);
         primitive.addAttributes("COLOR_0", a++);
@@ -236,9 +250,15 @@ public class SpzToTileset
 
         // The node needs a matrix, as this currently
         // seems to be assumed by CesiumJS
+        // @formatter:off
         node.setMatrix(new float[]
-        { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-            0.0f, 0.0f, 0.0f, 0.0f, 1.0f });
+        { 
+            1.0f, 0.0f, 0.0f, 0.0f, 
+            0.0f, 1.0f, 0.0f, 0.0f, 
+            0.0f, 0.0f, 1.0f, 0.0f, 
+            0.0f, 0.0f, 0.0f, 1.0f 
+        });
+        // @formatter:on
         gltf.addNodes(node);
 
         // Add the scene
@@ -258,8 +278,7 @@ public class SpzToTileset
     }
 
     /**
-     * Compute the bounding box of the given {@link GaussianCloud}, as it is
-     * stored in the tileset JSON
+     * Compute the bounding box of the given {@link GaussianCloud}
      * 
      * @param g The {@link GaussianCloud}
      * @return The bounding box
@@ -287,7 +306,8 @@ public class SpzToTileset
             maxY = Math.max(maxY, y);
             maxZ = Math.max(maxZ, z);
         }
-        float[] box = createBoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
+        float box[] = new float[]
+        { minX, minY, minZ, maxX, maxY, maxZ };
         return box;
     }
 
@@ -307,46 +327,73 @@ public class SpzToTileset
         // J3DTiles is not public yet. The obscure structure with
         // the additional child node is to work around what might
         // be a bug in CesiumJS, but everything is in flux here.
-        StringBuilder sb = new StringBuilder();
-        sb.append("{").append("\n");
-        sb.append("  \"asset\": {").append("\n");
-        sb.append("    \"version\": \"1.1\"").append("\n");
-        sb.append("  },").append("\n");
-        sb.append("  \"extensions\": {").append("\n");
-        sb.append("    \"3DTILES_content_gltf\": {").append("\n");
-        sb.append(
-            "      \"extensionsRequired\": [\"KHR_spz_gaussian_splats_compression\"],")
-            .append("\n");
-        sb.append(
-            "      \"extensionsUsed\": [\"KHR_spz_gaussian_splats_compression\"]")
-            .append("\n");
-        sb.append("    }").append("\n");
-        sb.append("  },").append("\n");
-        sb.append("  \"extensionsUsed\": [\"3DTILES_content_gltf\"],")
-            .append("\n");
-        sb.append("  \"geometricError\": 65536,").append("\n");
-        sb.append("  \"root\": {").append("\n");
-        sb.append("    \"boundingVolume\": {").append("\n");
-        sb.append("      \"box\": ").append(boxString).append("\n");
-        sb.append("    },").append("\n");
-        sb.append("    \"geometricError\": 32768,").append("\n");
-        sb.append("    \"refine\": \"REPLACE\",").append("\n");
-        sb.append("    \"children\": [").append("\n");
-        sb.append("      {").append("\n");
-        sb.append("        \"boundingVolume\": {").append("\n");
-        sb.append("          \"box\": ").append(boxString).append("\n");
-        sb.append("        },").append("\n");
-        sb.append("        \"content\": {").append("\n");
-        sb.append("          \"uri\": \"").append(contentUrl).append("\"")
-            .append("\n");
-        sb.append("        },").append("\n");
-        sb.append("        \"geometricError\": 0,").append("\n");
-        sb.append("        \"refine\": \"REPLACE\"").append("\n");
-        sb.append("      }").append("\n");
-        sb.append("    ]").append("\n");
-        sb.append("  }").append("\n");
-        sb.append("}").append("\n");
-        return sb.toString();
+        // @formatter:off
+        String tilesetJsonString = "" +
+            "{" + "\n" +
+            "  \"asset\": {" + "\n" +
+            "    \"version\": \"1.1\"" + "\n" +
+            "  }," + "\n" +
+            "  \"extensions\": {" + "\n" +
+            "    \"3DTILES_content_gltf\": {" + "\n" +
+            "      \"extensionsRequired\": [\"KHR_spz_gaussian_splats_compression\"]," + "\n" +
+            "      \"extensionsUsed\": [\"KHR_spz_gaussian_splats_compression\"]" + "\n" +
+            "    }" + "\n" +
+            "  }," + "\n" +
+            "  \"extensionsUsed\": [\"3DTILES_content_gltf\"]," + "\n" +
+            "  \"geometricError\": 65536," + "\n" +
+            "  \"root\": {" + "\n" +
+            "    \"boundingVolume\": {" + "\n" +
+            "      \"box\": " + boxString + "\n" +
+            "    }," + "\n" +
+            "    \"geometricError\": 32768," + "\n" +
+            "    \"refine\": \"REPLACE\"," + "\n" +
+            "    \"children\": [" + "\n" +
+            "      {" + "\n" +
+            "        \"boundingVolume\": {" + "\n" +
+            "          \"box\": " + boxString + "\n" +
+            "        }," + "\n" +
+            "        \"content\": {" + "\n" +
+            "          \"uri\": \"" + contentUrl + "\"" + "\n" +
+            "        }," + "\n" +
+            "        \"geometricError\": 0," + "\n" +
+            "        \"refine\": \"REPLACE\"" + "\n" +
+            "      }" + "\n" +
+            "    ]" + "\n" +
+            "  }" + "\n" +
+            "}" + "\n";
+        // @formatter:on
+        return tilesetJsonString;
+    }
+
+    /**
+     * Creates a bounding box for a tileset- or tile bounding volume from the
+     * bounding volume of a glTF asset
+     *
+     * This is the center- and half-axis representation of the
+     * `boundingVolume.box` that is described at
+     * https://github.com/CesiumGS/3d-tiles/tree/main/specification#box,
+     * computed from the minimum- and maximum point of a box.
+     *
+     * @param box The input bounding box
+     * @return The tileset boundingVolume .box
+     */
+    private static float[] createTilesetBoundingBoxFromGltf(float box[])
+    {
+        float minX = box[0];
+        float minY = box[1];
+        float minZ = box[2];
+        float maxX = box[3];
+        float maxY = box[4];
+        float maxZ = box[5];
+        
+        // Take into account the y-up-to-z-up transform:
+        float tMinX = minX;
+        float tMinY = -minZ;
+        float tMinZ = minY;
+        float tMaxX = maxX;
+        float tMaxY = -maxZ;
+        float tMaxZ = maxY;
+        return createTilesetBoundingBox(tMinX, tMinY, tMinZ, tMaxX, tMaxY, tMaxZ);
     }
 
     /**
@@ -361,7 +408,7 @@ public class SpzToTileset
      * @param maxZ The maximum z
      * @return The box
      */
-    private static float[] createBoundingBox(float minX, float minY, float minZ,
+    private static float[] createTilesetBoundingBox(float minX, float minY, float minZ,
         float maxX, float maxY, float maxZ)
     {
         float dx = maxX - minX;
