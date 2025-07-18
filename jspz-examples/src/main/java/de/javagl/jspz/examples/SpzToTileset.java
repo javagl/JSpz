@@ -247,8 +247,8 @@ public class SpzToTileset
         Node node = new Node();
         node.setMesh(0);
 
-        // The node needs a matrix, as this currently
-        // seems to be assumed by CesiumJS
+        // The node needs a matrix, converting Z-up to Y-up, as of
+        // version 1.131 of CesiumJS
         // @formatter:off
         node.setMatrix(new float[]
         { 
@@ -326,6 +326,8 @@ public class SpzToTileset
         // J3DTiles is not public yet. The obscure structure with
         // the additional child node is to work around what might
         // be a bug in CesiumJS, but everything is in flux here.
+        // The root transform is doing an Y-up-to-Z-up axis
+        // conversion, to undo the transform from the glTF.
         // @formatter:off
         String tilesetJsonString = "" +
             "{" + "\n" +
@@ -341,6 +343,7 @@ public class SpzToTileset
             "  \"extensionsUsed\": [\"3DTILES_content_gltf\"]," + "\n" +
             "  \"geometricError\": 65536," + "\n" +
             "  \"root\": {" + "\n" +
+            "    \"transform\": [ 1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1 ]," + "\n" +
             "    \"boundingVolume\": {" + "\n" +
             "      \"box\": " + boxString + "\n" +
             "    }," + "\n" +
