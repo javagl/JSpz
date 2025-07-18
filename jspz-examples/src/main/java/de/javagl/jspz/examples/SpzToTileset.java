@@ -58,9 +58,8 @@ public class SpzToTileset
     public static void main(String[] args) throws IOException
     {
         // Adjust this as necessary:
-        // String spzFileName = "./data/unitCube.spz";
-        String spzFileName = "./data/box-100-200-300-700-600-500.spz";
-        String outputDirectory = "./data/";
+        String spzFileName = "./data/unitCube.spz";
+        String outputDirectory = "./data";
 
         createTileset(spzFileName, outputDirectory);
     }
@@ -253,10 +252,10 @@ public class SpzToTileset
         // @formatter:off
         node.setMatrix(new float[]
         { 
-            1.0f, 0.0f, 0.0f, 0.0f, 
-            0.0f, 1.0f, 0.0f, 0.0f, 
-            0.0f, 0.0f, 1.0f, 0.0f, 
-            0.0f, 0.0f, 0.0f, 1.0f 
+            1.0f, 0.0f,  0.0f, 0.0f, 
+            0.0f, 0.0f, -1.0f, 0.0f, 
+            0.0f, 1.0f,  0.0f, 0.0f, 
+            0.0f, 0.0f,  0.0f, 1.0f 
         });
         // @formatter:on
         gltf.addNodes(node);
