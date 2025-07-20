@@ -50,6 +50,13 @@ import de.javagl.jspz.SpzWriters;
 public class SpzToTileset
 {
     /**
+     * A compile-time flag to insert certain up-axis conversion matrices in the
+     * glTF and the tileset JSON, to handle certain expectations that are made
+     * by CesiumJS.
+     */
+    private static boolean APPLY_UP_AXIS_TRANSFORMS = false;
+
+    /**
      * The entry point
      * 
      * @param args Not used
@@ -84,15 +91,15 @@ public class SpzToTileset
 
         byte[] gltfSpzBytes = spzBytes;
         // Convert the coordinate system for glTF
-        
+
         // NOTE: See https://github.com/nianticlabs/spz/issues/42
         boolean CONVERT_COORDINATES = false;
         if (CONVERT_COORDINATES)
         {
             // This should (probably) happen here, based on the description
             // of the KHR_spz_gaussian_splats_compression README at
-            // 068b74f3bc8f0a1bb13e2265409caddb76d31d12, but this is likely 
-            // not correct. 
+            // 068b74f3bc8f0a1bb13e2265409caddb76d31d12, but this is likely
+            // not correct.
             CoordinateSystems.convertCoordinates(g, CoordinateSystem.RUB,
                 CoordinateSystem.LUF);
             SpzWriter spzWriter = SpzWriters.createDefaultV2();
@@ -100,9 +107,9 @@ public class SpzToTileset
             spzWriter.write(g, baos);
             gltfSpzBytes = baos.toByteArray();
         }
-        
+
         float box[] = computeBoundingBox(g);
-        
+
         // Create a binary glTF asset from the SPZ data
         int numPoints = g.getNumPoints();
         int shDegree = g.getShDegree();
@@ -112,7 +119,15 @@ public class SpzToTileset
 
         // Create some dummy tileset JSON
         String contentUrl = "content.glb";
-        float[] tilesetBox = createTilesetBoundingBoxFromGltf(box);
+        float[] tilesetBox;
+        if (APPLY_UP_AXIS_TRANSFORMS)
+        {
+            tilesetBox = createTilesetBoundingBox(box);
+        }
+        else
+        {
+            tilesetBox = createTilesetBoundingBoxFromGltf(box);
+        }
         String tilesetJson = createTilesetJson(contentUrl, tilesetBox);
 
         // Prepare the output directory
@@ -247,17 +262,32 @@ public class SpzToTileset
         Node node = new Node();
         node.setMesh(0);
 
-        // The node needs a matrix, converting Z-up to Y-up, as of
-        // version 1.131 of CesiumJS
+        // The node needs a matrix, and it may have to be one that
+        // converts Z-up to Y-up, as of version 1.131 of CesiumJS
         // @formatter:off
-        node.setMatrix(new float[]
+        float zUpToYup[] = new float[]
         { 
             1.0f, 0.0f,  0.0f, 0.0f, 
             0.0f, 0.0f, -1.0f, 0.0f, 
             0.0f, 1.0f,  0.0f, 0.0f, 
             0.0f, 0.0f,  0.0f, 1.0f 
-        });
+        };
+        float identity[] = new float[]
+        { 
+            1.0f, 0.0f, 0.0f, 0.0f, 
+            0.0f, 1.0f, 0.0f, 0.0f, 
+            0.0f, 0.0f, 1.0f, 0.0f, 
+            0.0f, 0.0f, 0.0f, 1.0f 
+        };
         // @formatter:on
+        if (APPLY_UP_AXIS_TRANSFORMS)
+        {
+            node.setMatrix(zUpToYup);
+        }
+        else
+        {
+            node.setMatrix(identity);
+        }
         gltf.addNodes(node);
 
         // Add the scene
@@ -322,12 +352,38 @@ public class SpzToTileset
     {
         String boxString = Arrays.toString(box);
 
+        // @formatter:off
+        float yUpToZup[] = new float[] {
+            1.0f,  0.0f, 0.0f, 0.0f,
+            0.0f,  0.0f, 1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f, 0.0f, 
+            0.0f,  0.0f, 0.0f, 1.0f             
+        };
+        float identity[] = new float[]
+        { 
+            1.0f, 0.0f, 0.0f, 0.0f, 
+            0.0f, 1.0f, 0.0f, 0.0f, 
+            0.0f, 0.0f, 1.0f, 0.0f, 
+            0.0f, 0.0f, 0.0f, 1.0f 
+        };
+        // @formatter:on
+
+        // The root transform may have to to do an Y-up-to-Z-up axis
+        // conversion, to undo the transform from the glTF.
+        String transformString;
+        if (APPLY_UP_AXIS_TRANSFORMS)
+        {
+            transformString = Arrays.toString(yUpToZup);
+        }
+        else
+        {
+            transformString = Arrays.toString(identity);
+        }
+
         // This is creating a "dummy" tileset JSON string, because
         // J3DTiles is not public yet. The obscure structure with
         // the additional child node is to work around what might
         // be a bug in CesiumJS, but everything is in flux here.
-        // The root transform is doing an Y-up-to-Z-up axis
-        // conversion, to undo the transform from the glTF.
         // @formatter:off
         String tilesetJsonString = "" +
             "{" + "\n" +
@@ -343,7 +399,7 @@ public class SpzToTileset
             "  \"extensionsUsed\": [\"3DTILES_content_gltf\"]," + "\n" +
             "  \"geometricError\": 65536," + "\n" +
             "  \"root\": {" + "\n" +
-            "    \"transform\": [ 1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1 ]," + "\n" +
+            "    \"transform\": " + transformString + "," + "\n" +
             "    \"boundingVolume\": {" + "\n" +
             "      \"box\": " + boxString + "\n" +
             "    }," + "\n" +
@@ -387,7 +443,7 @@ public class SpzToTileset
         float maxX = box[3];
         float maxY = box[4];
         float maxZ = box[5];
-        
+
         // Take into account the y-up-to-z-up transform:
         float tMinX = minX;
         float tMinY = -minZ;
@@ -395,9 +451,34 @@ public class SpzToTileset
         float tMaxX = maxX;
         float tMaxY = -maxZ;
         float tMaxZ = maxY;
-        return createTilesetBoundingBox(tMinX, tMinY, tMinZ, tMaxX, tMaxY, tMaxZ);
+        return createTilesetBoundingBox(tMinX, tMinY, tMinZ, tMaxX, tMaxY,
+            tMaxZ);
     }
 
+    /**
+     * Creates a bounding box for a tileset- or tile bounding volume from the
+     * bounding volume
+     *
+     * This is the center- and half-axis representation of the
+     * `boundingVolume.box` that is described at
+     * https://github.com/CesiumGS/3d-tiles/tree/main/specification#box,
+     * computed from the minimum- and maximum point of a box.
+     *
+     * @param box The input bounding box
+     * @return The tileset boundingVolume .box
+     */
+    private static float[] createTilesetBoundingBox(float box[])
+    {
+        float minX = box[0];
+        float minY = box[1];
+        float minZ = box[2];
+        float maxX = box[3];
+        float maxY = box[4];
+        float maxZ = box[5];
+        return createTilesetBoundingBox(minX, minY, minZ, maxX, maxY,
+            maxZ);
+    }
+    
     /**
      * Creates a bounding box, as stored in a tileset JSON, from the given
      * minimum and maximum point of the box
@@ -410,8 +491,8 @@ public class SpzToTileset
      * @param maxZ The maximum z
      * @return The box
      */
-    private static float[] createTilesetBoundingBox(float minX, float minY, float minZ,
-        float maxX, float maxY, float maxZ)
+    private static float[] createTilesetBoundingBox(float minX, float minY,
+        float minZ, float maxX, float maxY, float maxZ)
     {
         float dx = maxX - minX;
         float dy = maxY - minY;
