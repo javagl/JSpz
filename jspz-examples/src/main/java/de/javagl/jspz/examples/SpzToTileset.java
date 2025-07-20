@@ -54,7 +54,7 @@ public class SpzToTileset
      * glTF and the tileset JSON, to handle certain expectations that are made
      * by CesiumJS.
      */
-    private static boolean APPLY_UP_AXIS_TRANSFORMS = false;
+    private static boolean APPLY_UP_AXIS_TRANSFORMS = true;
 
     /**
      * The entry point
