@@ -184,7 +184,7 @@ class DefaultSpzWriter
         RawGaussianClouds.convertPositions(positions, r.positions,
             fractionalBits);
         RawGaussianClouds.convertScales(scales, r.scales);
-        RawGaussianClouds.convertRotationsV2(rotations, r.rotations);
+        RawGaussianClouds.convertRotationsV3(rotations, r.rotations);
         RawGaussianClouds.convertAlphas(alphas, r.alphas);
         RawGaussianClouds.convertColors(colors, r.colors);
         RawGaussianClouds.convertShs(sh, r.sh, numPoints, shDegree);

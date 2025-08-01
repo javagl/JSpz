@@ -31,9 +31,9 @@ import java.nio.FloatBuffer;
 /**
  * Methods related to raw Gaussian cloud representations.
  * 
- * This is ... "heavily inspired" by the "unpackGaussians" function from
- * https://github.com/nianticlabs/spz, because many details are not specified
- * for the SPZ format itself.
+ * This is ... "heavily inspired" by the corresponding pack/unpack functions
+ * from https://github.com/nianticlabs/spz, because many details are not
+ * specified for the SPZ format itself.
  */
 class RawGaussianClouds
 {
@@ -299,6 +299,83 @@ class RawGaussianClouds
 
     /**
      * Convert the given data from a {@link GaussianCloud} into the raw data
+     * that is stored in a file with SPZ version 3.
+     * 
+     * @param rotations The data from the Gaussian cloud
+     * @param rawRotations The raw data
+     */
+    static void convertRotationsV3(FloatBuffer rotations, byte[] rawRotations)
+    {
+        float oneOverSqrt2 = (float) (1.0 / Math.sqrt(2.0));
+        float mask = ((1 << 9) - 1);
+        int numPoints = rotations.capacity() / 4;
+        float q[] = new float[4];
+        for (int i = 0; i < numPoints; i++)
+        {
+            float x = rotations.get(i * 4 + 0);
+            float y = rotations.get(i * 4 + 1);
+            float z = rotations.get(i * 4 + 2);
+            float w = rotations.get(i * 4 + 3);
+
+            float invLen =
+                1.0f / (float) Math.sqrt(x * x + y * y + z * z + w * w);
+            x *= invLen;
+            y *= invLen;
+            z *= invLen;
+            w *= invLen;
+
+            q[0] = x;
+            q[1] = y;
+            q[2] = z;
+            q[3] = w;
+
+            int indexOfLargest = indexOfAbsMax(q);
+            int negate = q[indexOfLargest] < 0 ? 1 : 0;
+
+            int components = indexOfLargest;
+            for (int j = 0; j < 4; ++j)
+            {
+                if (j != indexOfLargest)
+                {
+                    int signBit = ((q[j] < 0) ? 1 : 0) ^ negate;
+                    float component = Math.abs(q[j]) / oneOverSqrt2;
+                    int magnitude = (int) (mask * component + 0.5f);
+                    components =
+                        (components << 10) | (signBit << 9) | magnitude;
+                }
+            }
+
+            rawRotations[i * 4 + 0] = (byte) ((components >> 0) & 0xFF);
+            rawRotations[i * 4 + 1] = (byte) ((components >> 8) & 0xFF);
+            rawRotations[i * 4 + 2] = (byte) ((components >> 16) & 0xFF);
+            rawRotations[i * 4 + 3] = (byte) ((components >> 24) & 0xFF);
+        }
+    }
+
+    /**
+     * Returns the index of the largest absolute value in the given array
+     * 
+     * @param a The array
+     * @return The index
+     */
+    private static int indexOfAbsMax(float a[])
+    {
+        float max = Float.NEGATIVE_INFINITY;
+        int index = -1;
+        for (int i = 0; i < a.length; i++)
+        {
+            float abs = Math.abs(a[i]);
+            if (abs > max)
+            {
+                max = abs;
+                index = i;
+            }
+        }
+        return index;
+    }
+
+    /**
+     * Convert the given data from a {@link GaussianCloud} into the raw data
      * that is stored in the file.
      * 
      * @param alphas The data from the Gaussian cloud
@@ -342,7 +419,8 @@ class RawGaussianClouds
      * @param numPoints The number of points
      * @param shDegree The spherical harmonics degree
      */
-    static void convertShs(FloatBuffer sh, byte[] rawSh, int numPoints, int shDegree)
+    static void convertShs(FloatBuffer sh, byte[] rawSh, int numPoints,
+        int shDegree)
     {
         int shDim = SpzUtils.dimensionsForDegree(shDegree);
         for (int i = 0; i < numPoints; i++)
