@@ -99,7 +99,7 @@ public class JSpzBasicCreation
      * 
      * @return The {@link GaussianCloud}
      */
-    private static GaussianCloud createExampleGaussianCloud()
+    static GaussianCloud createExampleGaussianCloud()
     {
         // Create a Gaussian cloud and fill it with data
         GaussianCloud g = GaussianClouds.create(20, 0);
