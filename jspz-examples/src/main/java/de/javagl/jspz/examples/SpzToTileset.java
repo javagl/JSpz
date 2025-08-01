@@ -54,7 +54,57 @@ public class SpzToTileset
      * glTF and the tileset JSON, to handle certain expectations that are made
      * by CesiumJS.
      */
-    private static boolean APPLY_UP_AXIS_TRANSFORMS = true;
+    private static final boolean APPLY_UP_AXIS_TRANSFORMS = true;
+
+    /**
+     * Whether to use the <code>KHR_gaussian_splatting</code> base extension.
+     * 
+     * When this flag is <code>false</code>, then this example will insert the
+     * <code>KHR_spz_gaussian_splats_compression</code> extension as it was
+     * originally defined.
+     *
+     * When this is <code>true</code>, then
+     * 
+     * <!-- @formatter:off -->
+     * <ul>
+     *   <li>
+     *     it will use the base extension <code>KHR_gaussian_splatting</code>
+     *     from https://github.com/KhronosGroup/glTF/pull/2490 based on the 
+     *     commit state 81e73f1f367c05392dccfb150f1268448298abfb
+     *   </li>
+     *   <li>the SPZ extension will be nested within this base extension</li>
+     *   <li>
+     *     the SPZ extension will be called
+     *     <code>KHR_gaussian_splatting_compression_spz</code>
+     *   </li>
+     *   <li>
+     *     the attribute names will have the prefix
+     *     <code>"KHR_gaussian_splatting:"</code>
+     *   </li>
+     * </ul>
+     * <!-- @formatter:on -->
+     * 
+     * This is currently <code>false</code> by default, because there is no
+     * support for the base extension in CesiumJS (as of 2025-08-01).
+     */
+    private static boolean USE_BASE_EXTENSION = false;
+
+    /**
+     * The name of the SPZ extension.
+     * 
+     * This will be <code>KHR_spz_gaussian_splats_compression</code> by default,
+     * and <code>KHR_gaussian_splatting_compression_spz</code> when
+     * {@link #USE_BASE_EXTENSION} is <code>true</code>.
+     */
+    private static String SPZ_EXTENSION_NAME;
+
+    /**
+     * The string that is used as a prefix for the glTF attribute names.
+     * 
+     * This is used for disambiguating the attribute names, as part of
+     * https://github.com/KhronosGroup/glTF/issues/2111
+     */
+    private static String ATTRIBUTE_PREFIX;
 
     /**
      * The entry point
@@ -64,6 +114,17 @@ public class SpzToTileset
      */
     public static void main(String[] args) throws IOException
     {
+        if (USE_BASE_EXTENSION)
+        {
+            ATTRIBUTE_PREFIX = "KHR_gaussian_splatting:";
+            SPZ_EXTENSION_NAME = "KHR_gaussian_splatting_compression_spz";
+        }
+        else
+        {
+            ATTRIBUTE_PREFIX = "_";
+            SPZ_EXTENSION_NAME = "KHR_spz_gaussian_splats_compression";
+        }
+
         // Adjust this as necessary:
         String spzFileName = "./data/unitCube.spz";
         String outputDirectory = "./data";
@@ -72,9 +133,8 @@ public class SpzToTileset
     }
 
     /**
-     * Create a tileset that contains a single glTF content that uses the
-     * <code>KHR_spz_gaussian_splats_compression</code> extension to define the
-     * Gaussian Splats from the specified file.
+     * Create a tileset that contains a single glTF content that uses the SPZ
+     * extension to define the Gaussian Splats from the specified file.
      * 
      * @param spzFileName The SPZ file name
      * @param outputDirectory The output directory
@@ -86,7 +146,7 @@ public class SpzToTileset
         // Read the SPZ data and a GaussianCloud
         byte[] spzBytes = Files.readAllBytes(Paths.get(spzFileName));
         InputStream spzInputStream = new ByteArrayInputStream(spzBytes);
-        SpzReader spzReader = SpzReaders.createDefaultV2();
+        SpzReader spzReader = SpzReaders.createDefault();
         GaussianCloud g = spzReader.read(spzInputStream);
 
         byte[] gltfSpzBytes = spzBytes;
@@ -145,9 +205,8 @@ public class SpzToTileset
     }
 
     /**
-     * Create a binary glTF asset that uses the
-     * <code>KHR_spz_gaussian_splats_compression</code> extension to define
-     * Gaussian Splats
+     * Create a binary glTF asset that uses the SPZ extension to define Gaussian
+     * Splats
      * 
      * @param numPoints The number of points
      * @param shDegree The shpherical harmonics degree
@@ -234,24 +293,37 @@ public class SpzToTileset
         int a = 0;
         primitive.addAttributes("POSITION", a++);
         primitive.addAttributes("COLOR_0", a++);
-        primitive.addAttributes("_ROTATION", a++);
-        primitive.addAttributes("_SCALE", a++);
+        primitive.addAttributes(ATTRIBUTE_PREFIX + "ROTATION", a++);
+        primitive.addAttributes(ATTRIBUTE_PREFIX + "SCALE", a++);
 
         for (int d = 0; d < shDegree; d++)
         {
             int numCoeffs = numCoeffsPerDegree[d];
             for (int n = 0; n < numCoeffs; n++)
             {
-                String s = "_SH_DEGREE_" + (d + 1) + "_COEF_" + n;
-                primitive.addAttributes(s, a++);
+                String s = "SH_DEGREE_" + (d + 1) + "_COEF_" + n;
+                primitive.addAttributes(ATTRIBUTE_PREFIX + s, a++);
             }
         }
 
-        // Add the SPZ extension object to the primitive
-        Map<Object, Object> extension = new LinkedHashMap<Object, Object>();
-        extension.put("bufferView", 0);
-        primitive.addExtensions("KHR_spz_gaussian_splats_compression",
-            extension);
+        // Add the extension object to the primitive
+        Map<Object, Object> spzExtension = new LinkedHashMap<Object, Object>();
+        spzExtension.put("bufferView", 0);
+        if (USE_BASE_EXTENSION)
+        {
+            Map<Object, Object> baseExtension =
+                new LinkedHashMap<Object, Object>();
+            Map<Object, Object> innerExtensions =
+                new LinkedHashMap<Object, Object>();
+            innerExtensions.put(SPZ_EXTENSION_NAME, spzExtension);
+            baseExtension.put("extensions", innerExtensions);
+            primitive.addExtensions("KHR_gaussian_splatting",
+                baseExtension);
+        }
+        else
+        {
+            primitive.addExtensions(SPZ_EXTENSION_NAME, spzExtension);
+        }
 
         // Add the mesh
         Mesh mesh = new Mesh();
@@ -297,8 +369,13 @@ public class SpzToTileset
         gltf.setScene(0);
 
         // Add information about the used/required extension
-        gltf.addExtensionsUsed("KHR_spz_gaussian_splats_compression");
-        gltf.addExtensionsRequired("KHR_spz_gaussian_splats_compression");
+        if (USE_BASE_EXTENSION)
+        {
+            gltf.addExtensionsUsed("KHR_gaussian_splatting");
+            gltf.addExtensionsRequired("KHR_gaussian_splatting");
+        }
+        gltf.addExtensionsUsed(SPZ_EXTENSION_NAME);
+        gltf.addExtensionsRequired(SPZ_EXTENSION_NAME);
 
         // Build the actual asset
         ByteBuffer binaryData = ByteBuffer.wrap(spzBytes);
@@ -392,8 +469,8 @@ public class SpzToTileset
             "  }," + "\n" +
             "  \"extensions\": {" + "\n" +
             "    \"3DTILES_content_gltf\": {" + "\n" +
-            "      \"extensionsRequired\": [\"KHR_spz_gaussian_splats_compression\"]," + "\n" +
-            "      \"extensionsUsed\": [\"KHR_spz_gaussian_splats_compression\"]" + "\n" +
+            "      \"extensionsRequired\": [\"" + SPZ_EXTENSION_NAME + "\"]," + "\n" +
+            "      \"extensionsUsed\": [\"" + SPZ_EXTENSION_NAME + "\"]" + "\n" +
             "    }" + "\n" +
             "  }," + "\n" +
             "  \"extensionsUsed\": [\"3DTILES_content_gltf\"]," + "\n" +
@@ -475,10 +552,9 @@ public class SpzToTileset
         float maxX = box[3];
         float maxY = box[4];
         float maxZ = box[5];
-        return createTilesetBoundingBox(minX, minY, minZ, maxX, maxY,
-            maxZ);
+        return createTilesetBoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
     }
-    
+
     /**
      * Creates a bounding box, as stored in a tileset JSON, from the given
      * minimum and maximum point of the box
