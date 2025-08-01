@@ -49,6 +49,58 @@ public class JSpzBasicCreation
      */
     public static void main(String[] args) throws IOException
     {
+        GaussianCloud g = createExampleGaussianCloud();
+        writeV2(g);
+        writeV3(g);
+    }
+
+    /**
+     * Write the given {@link GaussianCloud} as SPZ version 2
+     * 
+     * @param g The {@link GaussianCloud}
+     * @throws IOException If an IO error occurs
+     */
+    private static void writeV2(GaussianCloud g)
+        throws IOException
+    {
+        // Create an output stream for the SPZ data
+        OutputStream spzOutputStream =
+            new FileOutputStream(new File("./data/unitCube-V2.spz"));
+
+        // Create a default SPZ writer
+        SpzWriter spzWriter = SpzWriters.createDefaultV2();
+
+        // Write the GaussianCloud to the output stream
+        spzWriter.write(g, spzOutputStream);
+    }
+
+    /**
+     * Write the given {@link GaussianCloud} as SPZ version 3
+     * 
+     * @param g The {@link GaussianCloud}
+     * @throws IOException If an IO error occurs
+     */
+    private static void writeV3(GaussianCloud g)
+        throws IOException
+    {
+        // Create an output stream for the SPZ data
+        OutputStream spzOutputStream =
+            new FileOutputStream(new File("./data/unitCube-V3.spz"));
+
+        // Create a default SPZ writer
+        SpzWriter spzWriter = SpzWriters.createDefaultV3();
+
+        // Write the GaussianCloud to the output stream
+        spzWriter.write(g, spzOutputStream);
+    }
+
+    /**
+     * Create an unspecified example {@link GaussianCloud}
+     * 
+     * @return The {@link GaussianCloud}
+     */
+    private static GaussianCloud createExampleGaussianCloud()
+    {
         // Create a Gaussian cloud and fill it with data
         GaussianCloud g = GaussianClouds.create(20, 0);
 
@@ -76,16 +128,7 @@ public class JSpzBasicCreation
         set(g, c++, 0.0f, 1.0f, 0.5f, 1.0f, 1.0f, size);
         set(g, c++, 1.0f, 0.0f, 0.5f, 1.0f, 1.0f, size);
         set(g, c++, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f, size);
-
-        // Create an output stream for the SPZ data
-        OutputStream spzOutputStream =
-            new FileOutputStream(new File("./data/unitCube.spz"));
-
-        // Create a default SPZ writer
-        SpzWriter spzWriter = SpzWriters.createDefaultV2();
-
-        // Write the GaussianCloud to the output stream
-        spzWriter.write(g, spzOutputStream);
+        return g;
     }
 
     /**

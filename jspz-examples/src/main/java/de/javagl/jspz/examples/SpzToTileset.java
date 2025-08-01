@@ -86,7 +86,7 @@ public class SpzToTileset
         // Read the SPZ data and a GaussianCloud
         byte[] spzBytes = Files.readAllBytes(Paths.get(spzFileName));
         InputStream spzInputStream = new ByteArrayInputStream(spzBytes);
-        SpzReader spzReader = SpzReaders.createDefaultV2();
+        SpzReader spzReader = SpzReaders.createDefault();
         GaussianCloud g = spzReader.read(spzInputStream);
 
         byte[] gltfSpzBytes = spzBytes;
