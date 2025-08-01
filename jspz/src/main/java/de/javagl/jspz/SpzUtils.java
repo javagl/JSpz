@@ -55,7 +55,7 @@ class SpzUtils
     static float invSigmoid(float x)
     {
         float f = (float) Math.log(x / (1.0 - x));
-        // TODO This does not make sense, but neither does dealing with 
+        // TODO This does not make sense, but neither does dealing with
         // infinity. See https://github.com/nianticlabs/spz/issues/22
         return Math.max(-20.0f, Math.min(20.0f, f));
     }

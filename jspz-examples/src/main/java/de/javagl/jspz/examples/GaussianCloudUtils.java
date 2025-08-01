@@ -83,7 +83,7 @@ public class GaussianCloudUtils
     }
 
     /**
-     * Returns the whether the given {@link GaussianCloud} objects are equal
+     * Returns whether the given {@link GaussianCloud} objects are equal
      * 
      * @param g0 The first {@link GaussianCloud}
      * @param g1 The second {@link GaussianCloud}
@@ -147,6 +147,248 @@ public class GaussianCloudUtils
         float a1[] = new float[b1.remaining()];
         b1.slice().get(a1);
         return Arrays.equals(a0, a1);
+    }
+
+    /**
+     * Returns whether the specified splats are epsilon-equal.
+     * 
+     * This involves special treatment for the scalar (rotation) component of
+     * the quaternions: It will treat them as actual rotation angles, meaning
+     * that values like 1.0 and -1.0 will be considered to be equal.
+     * 
+     * @param g0 The first {@link GaussianCloud}
+     * @param index0 The first index
+     * @param g1 The second {@link GaussianCloud}
+     * @param index1 The second index
+     * @param epsilon The epsilon
+     * @return The result
+     */
+    static boolean equalsEpsilon(GaussianCloud g0, int index0, GaussianCloud g1,
+        int index1, float epsilon)
+    {
+        int shDegree0 = g0.getShDegree();
+        int shDegree1 = g1.getShDegree();
+        if (shDegree0 != shDegree1)
+        {
+            return false;
+        }
+
+        float p0[] = getPosition(g0, index0);
+        float p1[] = getPosition(g1, index1);
+        if (!equalsEpsilon(p0, p1, epsilon))
+        {
+            return false;
+        }
+
+        float s0[] = getScale(g0, index0);
+        float s1[] = getScale(g1, index1);
+        if (!equalsEpsilon(s0, s1, epsilon))
+        {
+            return false;
+        }
+
+        float r0[] = getRotation(g0, index0);
+        float r1[] = getRotation(g1, index1);
+        if (!equalsEpsilon(r0[0], r1[0], epsilon))
+        {
+            return false;
+        }
+        if (!equalsEpsilon(r0[1], r1[1], epsilon))
+        {
+            return false;
+        }
+        if (!equalsEpsilon(r0[2], r1[2], epsilon))
+        {
+            return false;
+        }
+        // Special treatment for rotation component: The difference
+        // modulo 1.0 is computed, and should be epsilon-equal to 0
+        float dw = 1.0f - Math.abs(Math.abs(r0[3] - r1[3]) - 1.0f);
+        if (!equalsEpsilon(dw, 0.0f, epsilon))
+        {
+            return false;
+        }
+
+        float a0 = getAlpha(g0, index0);
+        float a1 = getAlpha(g1, index1);
+        if (!equalsEpsilon(a0, a1, epsilon))
+        {
+            return false;
+        }
+
+        float c0[] = getColor(g0, index0);
+        float c1[] = getColor(g1, index1);
+        if (!equalsEpsilon(c0, c1, epsilon))
+        {
+            return false;
+        }
+
+        int shDimensions = dimensionsForDegree(shDegree0);
+        for (int d = 0; d < shDimensions; d++)
+        {
+            float sh0[] = getSh(g0, index0, shDegree0, d);
+            float sh1[] = getSh(g1, index1, shDegree1, d);
+            if (!equalsEpsilon(sh0, sh1, epsilon))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Internal method to return the specified position as an array
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @return The result
+     */
+    private static float[] getPosition(GaussianCloud g, int index)
+    {
+        FloatBuffer positions = g.getPositions();
+        float px = positions.get(index * 3 + 0);
+        float py = positions.get(index * 3 + 1);
+        float pz = positions.get(index * 3 + 2);
+        return new float[]
+        { px, py, pz };
+    }
+
+    /**
+     * Internal method to return the specified scale as an array
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @return The result
+     */
+    private static float[] getScale(GaussianCloud g, int index)
+    {
+        FloatBuffer scales = g.getScales();
+        float sx = scales.get(index * 3 + 0);
+        float sy = scales.get(index * 3 + 1);
+        float sz = scales.get(index * 3 + 2);
+        return new float[]
+        { sx, sy, sz };
+    }
+
+    /**
+     * Internal method to return the specified rotation as an array
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @return The result
+     */
+    private static float[] getRotation(GaussianCloud g, int index)
+    {
+        FloatBuffer rotations = g.getRotations();
+        float rx = rotations.get(index * 3 + 0);
+        float ry = rotations.get(index * 4 + 1);
+        float rz = rotations.get(index * 4 + 2);
+        float rw = rotations.get(index * 4 + 2);
+        return new float[]
+        { rx, ry, rz, rw };
+    }
+
+    /**
+     * Internal method to return the specified alpha value
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @return The result
+     */
+    private static float getAlpha(GaussianCloud g, int index)
+    {
+        FloatBuffer alphas = g.getAlphas();
+        return alphas.get(index);
+    }
+
+    /**
+     * Internal method to return the specified color as an array
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @return The result
+     */
+    private static float[] getColor(GaussianCloud g, int index)
+    {
+        FloatBuffer colors = g.getColors();
+        float cx = colors.get(index * 3 + 0);
+        float cy = colors.get(index * 3 + 1);
+        float cz = colors.get(index * 3 + 2);
+        return new float[]
+        { cx, cy, cz };
+    }
+
+    /**
+     * Internal method to return the specified spherical harmonic as an array
+     * 
+     * @param g The {@link GaussianCloud}
+     * @param index The index
+     * @param shDegree The SH degree
+     * @param shDimension The SH dimension
+     * @return The result
+     */
+    private static float[] getSh(GaussianCloud g, int index, int shDegree,
+        int shDimension)
+    {
+        FloatBuffer shs = g.getColors();
+        int shDimensions = dimensionsForDegree(shDegree);
+        int indexOffset = (index * shDimensions + shDimension) * 3;
+        int i0 = indexOffset + 0;
+        int i1 = indexOffset + 1;
+        int i2 = indexOffset + 2;
+        float shx = shs.get(i0);
+        float shy = shs.get(i1);
+        float shz = shs.get(i2);
+        return new float[]
+        { shx, shy, shz };
+    }
+
+    /**
+     * Returns whether the given arrays are epsilon-equal
+     * 
+     * @param a The first array
+     * @param b The second array
+     * @param epsilon The relative epsilon
+     * @return Whether they are equal
+     */
+    private static boolean equalsEpsilon(float a[], float b[], float epsilon)
+    {
+        if (a.length != b.length)
+        {
+            return false;
+        }
+        for (int i = 0; i < a.length; i++)
+        {
+            if (!equalsEpsilon(a[i], b[i], epsilon))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether the given values are epsilon-equal
+     * 
+     * @param a The first value
+     * @param b The second value
+     * @param epsilon The relative epsilon
+     * @return Whether they are equal
+     */
+    private static boolean equalsEpsilon(float a, float b, float epsilon)
+    {
+        float d = Math.abs(a - b);
+        if (d < epsilon)
+        {
+            return true;
+        }
+        float aa = Math.abs(a);
+        float ab = Math.abs(b);
+        if (aa < ab)
+        {
+            return d <= ab * epsilon;
+        }
+        return d <= aa * epsilon;
     }
 
     /**

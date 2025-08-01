@@ -32,13 +32,40 @@ package de.javagl.jspz;
 public class SpzWriters
 {
     /**
+     * Create a default {@link SpzWriter} that writes SPZ data in the latest
+     * supported version.
+     * 
+     * @return The {@link SpzReader}
+     */
+    public static SpzWriter createDefault()
+    {
+        return DefaultSpzWriter::writeV2;
+    }
+
+    /**
      * Create a default {@link SpzWriter} for SPZ version 2.
+     * 
+     * Usually, clients with call {@link #createDefault()} to create a writer
+     * that writes the latest supported SPZ version.
      * 
      * @return The {@link SpzReader}
      */
     public static SpzWriter createDefaultV2()
     {
-        return new DefaultSpzWriter();
+        return DefaultSpzWriter::writeV2;
+    }
+
+    /**
+     * Create a default {@link SpzWriter} for SPZ version 3.
+     * 
+     * Usually, clients with call {@link #createDefault()} to create a writer
+     * that writes the latest supported SPZ version.
+     * 
+     * @return The {@link SpzReader}
+     */
+    public static SpzWriter createDefaultV3()
+    {
+        return DefaultSpzWriter::writeV3;
     }
 
     /**
