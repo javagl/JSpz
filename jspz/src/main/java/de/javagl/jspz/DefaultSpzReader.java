@@ -62,20 +62,21 @@ class DefaultSpzReader implements SpzReader
                     + ", but it is " + Integer.toHexString(magic));
         }
         int version = headerBuffer.getInt(4);
-        if (version != 2)
+        if (version != 2 && version != 3)
         {
             throw new IOException(
-                "Expected version to be 2, but it is " + version);
+                "Expected version to be 2 or 3, but it is " + version);
         }
         int numPoints = headerBuffer.getInt(8);
         byte shDegree = headerBuffer.get(12);
         byte fractionalBits = headerBuffer.get(13);
         byte flags = headerBuffer.get(14);
-
         boolean antialiased = (flags & 1) != 0;
 
-        RawGaussianCloudV2 r = new RawGaussianCloudV2(numPoints, shDegree,
-            fractionalBits, antialiased);
+        int positionBytes = 3;
+        int rotationBytes = (version == 3) ? 4 : 3; // Yes!
+        RawGaussianCloud r = new RawGaussianCloud(numPoints, positionBytes,
+            rotationBytes, shDegree, fractionalBits, antialiased);
 
         // Yeah. The order is mentioned in the README, but
         // does not match the order of the sections.
@@ -86,22 +87,23 @@ class DefaultSpzReader implements SpzReader
         dataInput.readFully(r.rotations);
         dataInput.readFully(r.sh);
 
-        GaussianCloud g = convert(r);
+        if (version == 2)
+        {
+            GaussianCloud g = convertV2(r);
+            return g;
+        }
+        GaussianCloud g = convertV3(r);
         return g;
     }
 
     /**
-     * Converts the given {@link RawGaussianCloudV2} into a
-     * {@link GaussianCloud}.
+     * Converts the given {@link RawGaussianCloud} storing data in SPZ version 2
+     * into a {@link GaussianCloud}.
      * 
-     * This is ... "heavily inspired" by the "unpackGaussians" function from
-     * https://github.com/nianticlabs/spz, because many details are not
-     * specified for the SPZ format itself.
-     * 
-     * @param raw The {@link RawGaussianCloudV2}
+     * @param raw The {@link RawGaussianCloud}
      * @return The {@link GaussianCloud}
      */
-    private static GaussianCloud convert(RawGaussianCloudV2 raw)
+    private static GaussianCloud convertV2(RawGaussianCloud raw)
     {
         int numPoints = raw.numPoints;
         int shDegree = raw.shDegree;
@@ -117,67 +119,48 @@ class DefaultSpzReader implements SpzReader
         FloatBuffer colors = result.getColors();
         FloatBuffer sh = result.getSh();
 
-        float scale = 1.0f / (1 << raw.fractionalBits);
-        for (int i = 0; i < numPoints * 3; i++)
-        {
-            int p0 = Byte.toUnsignedInt(raw.positions[i * 3 + 0]);
-            int p1 = Byte.toUnsignedInt(raw.positions[i * 3 + 1]);
-            int p2 = Byte.toUnsignedInt(raw.positions[i * 3 + 2]);
-            int p = 0;
-            p |= p0;
-            p |= p1 << 8;
-            p |= p2 << 16;
-            p |= ((p & 0x800000) != 0) ? 0xff000000 : 0;
-            positions.put(i, p * scale);
-        }
-
-        for (int i = 0; i < numPoints * 3; i++)
-        {
-            int s = Byte.toUnsignedInt(raw.scales[i]);
-            scales.put(i, s / 16.0f - 10.0f);
-        }
-
-        float invRotation = 1.0f / 127.5f;
-        for (int i = 0; i < numPoints; i++)
-        {
-            int r0 = Byte.toUnsignedInt(raw.rotations[i * 3 + 0]);
-            int r1 = Byte.toUnsignedInt(raw.rotations[i * 3 + 1]);
-            int r2 = Byte.toUnsignedInt(raw.rotations[i * 3 + 2]);
-            float q0 = r0 * invRotation - 1.0f;
-            float q1 = r1 * invRotation - 1.0f;
-            float q2 = r2 * invRotation - 1.0f;
-            float sn = q0 * q0 + q1 * q1 + q2 * q2;
-            float q3 = (float) Math.sqrt(Math.max(0, 1.0f - sn));
-            rotations.put(i * 4 + 0, q0);
-            rotations.put(i * 4 + 1, q1);
-            rotations.put(i * 4 + 2, q2);
-            rotations.put(i * 4 + 3, q3);
-        }
-
-        float invByte = 1.0f / 255.0f;
-        for (int i = 0; i < numPoints; i++)
-        {
-            int a = Byte.toUnsignedInt(raw.alphas[i]);
-            alphas.put(i, SpzUtils.invSigmoid(a * invByte));
-        }
-
-        float invColorScale = 1.0f / 0.15f;
-        for (int i = 0; i < numPoints * 3; i++)
-        {
-            int c = Byte.toUnsignedInt(raw.colors[i]);
-            float cf = ((c * invByte) - 0.5f) * invColorScale;
-            colors.put(i, cf);
-        }
-
-        float invHalfByte = 1.0f / 128.0f;
-        for (int i = 0; i < raw.sh.length; i++)
-        {
-            int sr = Byte.toUnsignedInt(raw.sh[i]);
-            float sf = (sr - 128.0f) * invHalfByte;
-            sh.put(i, sf);
-        }
+        RawGaussianClouds.convertPositions(raw.positions, positions,
+            raw.fractionalBits);
+        RawGaussianClouds.convertScales(raw.scales, scales);
+        RawGaussianClouds.convertRotationsV2(raw.rotations, rotations);
+        RawGaussianClouds.convertAlphas(raw.alphas, alphas);
+        RawGaussianClouds.convertColors(raw.colors, colors);
+        RawGaussianClouds.convertShs(raw.sh, sh);
 
         return result;
     }
 
+    /**
+     * Converts the given {@link RawGaussianCloud} storing data in SPZ version 3
+     * into a {@link GaussianCloud}.
+     * 
+     * @param raw The {@link RawGaussianCloud}
+     * @return The {@link GaussianCloud}
+     */
+    private static GaussianCloud convertV3(RawGaussianCloud raw)
+    {
+        int numPoints = raw.numPoints;
+        int shDegree = raw.shDegree;
+        boolean antialiased = raw.antialiased;
+
+        GaussianCloud result =
+            new DefaultGaussianCloud(numPoints, shDegree, antialiased);
+
+        FloatBuffer positions = result.getPositions();
+        FloatBuffer scales = result.getScales();
+        FloatBuffer rotations = result.getRotations();
+        FloatBuffer alphas = result.getAlphas();
+        FloatBuffer colors = result.getColors();
+        FloatBuffer sh = result.getSh();
+
+        RawGaussianClouds.convertPositions(raw.positions, positions,
+            raw.fractionalBits);
+        RawGaussianClouds.convertScales(raw.scales, scales);
+        RawGaussianClouds.convertRotationsV3(raw.rotations, rotations);
+        RawGaussianClouds.convertAlphas(raw.alphas, alphas);
+        RawGaussianClouds.convertColors(raw.colors, colors);
+        RawGaussianClouds.convertShs(raw.sh, sh);
+
+        return result;
+    }
 }

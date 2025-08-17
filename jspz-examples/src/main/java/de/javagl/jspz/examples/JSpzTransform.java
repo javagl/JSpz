@@ -38,7 +38,7 @@ public class JSpzTransform
         InputStream spzInputStream = new FileInputStream(new File(fileName));
 
         // Create a default SPZ reader
-        SpzReader spzReader = SpzReaders.createDefaultV2();
+        SpzReader spzReader = SpzReaders.createDefault();
 
         // Read a GaussianCloud object from the input stream
         System.out.println("Reading...");

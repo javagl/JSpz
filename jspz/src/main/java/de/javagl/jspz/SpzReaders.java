@@ -32,9 +32,22 @@ package de.javagl.jspz;
 public class SpzReaders
 {
     /**
+     * Create a default {@link SpzReader} that can read SPZ data up to the
+     * latest supported version.
+     * 
+     * @return The {@link SpzReader}
+     */
+    public static SpzReader createDefault()
+    {
+        return new DefaultSpzReader();
+    }
+
+    /**
      * Create a default {@link SpzReader} for SPZ version 2.
      * 
      * @return The {@link SpzReader}
+     * 
+     * @deprecated Use {@link #createDefault()} instead
      */
     public static SpzReader createDefaultV2()
     {
