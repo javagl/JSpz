@@ -39,7 +39,7 @@ public class SpzWriters
      */
     public static SpzWriter createDefault()
     {
-        return DefaultSpzWriter::writeV2;
+        return DefaultSpzWriter::writeV3;
     }
 
     /**

@@ -67,7 +67,9 @@ public class JSpzBasicCreation
         OutputStream spzOutputStream =
             new FileOutputStream(new File("./data/unitCube-V2.spz"));
 
-        // Create a default SPZ writer
+        // Create an SPZ writer for version 2
+        // (Clients will usually just call 'createDefault' to 
+        // create a writer for the latest supported version)
         SpzWriter spzWriter = SpzWriters.createDefaultV2();
 
         // Write the GaussianCloud to the output stream
@@ -87,7 +89,9 @@ public class JSpzBasicCreation
         OutputStream spzOutputStream =
             new FileOutputStream(new File("./data/unitCube-V3.spz"));
 
-        // Create a default SPZ writer
+        // Create an SPZ writer for version 3
+        // (Clients will usually just call 'createDefault' to 
+        // create a writer for the latest supported version)
         SpzWriter spzWriter = SpzWriters.createDefaultV3();
 
         // Write the GaussianCloud to the output stream
